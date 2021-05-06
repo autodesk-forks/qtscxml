@@ -5,4 +5,5 @@ SUBDIRS = cmake\
           parser\
           scion\
           statemachine \
-          statemachineinfo
+          statemachineinfo \
+          qmltest
