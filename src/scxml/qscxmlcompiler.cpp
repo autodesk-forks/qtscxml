@@ -54,6 +54,14 @@
 #include "qscxmltabledata_p.h"
 
 #include <private/qmetaobjectbuilder_p.h>
+#if QT_CONFIG(scxml_ecmascriptdatamodel)
+// In Qt5 the ecmascript datamodel brings in QML dependency.
+// We use that to include the QML headers needed for invalidating
+// property cache, even though strictly speaking these are distinct
+// functionalities.
+#include <private/qqmldata_p.h>
+#include <private/qqmlpropertycache_p.h>
+#endif
 #endif // BUILD_QSCXMLC
 
 #include <functional>
@@ -485,31 +493,9 @@ private:
 
 class DynamicStateMachinePrivate : public QScxmlStateMachinePrivate
 {
-    struct DynamicMetaObject : public QAbstractDynamicMetaObject
-    {
-        QAbstractDynamicMetaObject *toDynamicMetaObject(QObject *) override
-        {
-            return this;
-        }
-
-        int metaCall(QObject *o, QMetaObject::Call c, int id, void **a) override
-        {
-            return o->qt_metacall(c, id, a);
-        }
-    };
-
 public:
     DynamicStateMachinePrivate() :
-        QScxmlStateMachinePrivate(&QScxmlStateMachine::staticMetaObject)
-    {
-        metaObject = new DynamicMetaObject;
-    }
-
-    void setDynamicMetaObject(const QMetaObject *m) {
-        // Prevent the QML engine from creating a property cache for this thing.
-        static_cast<DynamicMetaObject *>(metaObject)->d = m->d;
-        m_metaObject = m;
-    }
+        QScxmlStateMachinePrivate(&QScxmlStateMachine::staticMetaObject) {}
 };
 
 class DynamicStateMachine: public QScxmlStateMachine, public QScxmlInternal::GeneratedTableData
@@ -566,7 +552,7 @@ private:
         b.setClassName("DynamicStateMachine");
         b.setSuperClass(&QScxmlStateMachine::staticMetaObject);
         b.setStaticMetacallFunction(qt_static_metacall);
-        d->setDynamicMetaObject(b.toMetaObject());
+        d->m_metaObject = b.toMetaObject();
     }
 
     void initDynamicParts(const MetaDataInfo &info)
@@ -575,7 +561,7 @@ private:
         // Release the temporary QMetaObject.
         Q_ASSERT(d->m_metaObject != &QScxmlStateMachine::staticMetaObject);
         free(const_cast<QMetaObject *>(d->m_metaObject));
-        d->setDynamicMetaObject(&QScxmlStateMachine::staticMetaObject);
+        d->m_metaObject = &QScxmlStateMachine::staticMetaObject;
 
         // Build the real one.
         QMetaObjectBuilder b;
@@ -601,7 +587,7 @@ private:
         }
 
         // And we're done
-        d->setDynamicMetaObject(b.toMetaObject());
+        d->m_metaObject = b.toMetaObject();
     }
 
 public:
@@ -609,8 +595,24 @@ public:
     {
         Q_D(DynamicStateMachine);
         if (d->m_metaObject != &QScxmlStateMachine::staticMetaObject) {
+#if QT_CONFIG(scxml_ecmascriptdatamodel)
+            // Invalidate the QML property cache as we delete the dynamic
+            // metaobject, otherwise stale string accesses might occur.
+            // Important! This invalidation is a workaround and brittle at
+            // at best; while string cache will be cleared, the cache itself
+            // will not. Instead we rely on that the (only) user for the cache
+            // is gone as well. This workaround is specific to Qt5, in Qt6
+            // we are able to fix the issue more properly by marking the
+            // metaobject dynamic => QML property caching will not be done.
+            //
+            // All further interaction with this property cache must be
+            // avoided.
+            QQmlData *ddata = QQmlData::get(this, false);
+            if (ddata && ddata->propertyCache)
+                ddata->propertyCache->invalidate(d->m_metaObject);
+#endif
             free(const_cast<QMetaObject *>(d->m_metaObject));
-            d->setDynamicMetaObject(&QScxmlStateMachine::staticMetaObject);
+            d->m_metaObject = &QScxmlStateMachine::staticMetaObject;
         }
     }
 
