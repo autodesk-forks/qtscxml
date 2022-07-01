@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2016 Klaralvdalens Datakonsult AB (KDAB).
+# Copyright (C) 2022 The Qt Company Ltd.
 # Contact: https://www.qt.io/licensing/
 #
 # This file is part of the QtScxml module of the Qt Toolkit.
@@ -88,12 +89,9 @@ function(qt6_add_statecharts target_or_outfiles)
                            DEPENDS ${QT_CMAKE_EXPORT_NAMESPACE}::qscxmlc
                            MAIN_DEPENDENCY ${infile}
                            VERBATIM)
+        set_source_files_properties(${outfile_cpp} ${outfile_h} PROPERTIES SKIP_AUTOGEN TRUE)
         list(APPEND outfiles ${outfile_cpp})
     endforeach()
-    set_source_files_properties(${outfiles} PROPERTIES
-        SKIP_AUTOMOC TRUE
-        SKIP_AUTOUIC TRUE
-    )
     if (TARGET ${target_or_outfiles})
         target_include_directories(${target_or_outfiles} PRIVATE ${qscxmlcOutputDir})
         target_sources(${target_or_outfiles} PRIVATE ${outfiles})
