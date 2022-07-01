@@ -73,6 +73,7 @@ function(qt6_add_statecharts target_or_outfiles)
         endif()
     endif()
 
+    set(outfiles)
     foreach(it ${scxml_files})
         get_filename_component(outfilename ${it} NAME_WE)
         get_filename_component(infile ${it} ABSOLUTE)
