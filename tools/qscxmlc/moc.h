@@ -30,6 +30,7 @@
 #define MOC_H
 
 // -- QtScxml
+#include <QtCore/private/qtools_p.h>
 #include <QtCore/qmap.h>
 #include <QtCore/qpair.h>
 #include <QtCore/qjsondocument.h>
@@ -133,7 +134,7 @@ struct PropertyDef
 {
     bool stdCppSet() const {
         QByteArray s("set");
-        s += toupper(name[0]);
+        s += QtMiscUtils::toAsciiUpper(name[0]);
         s += name.mid(1);
         return (s == write);
     }
