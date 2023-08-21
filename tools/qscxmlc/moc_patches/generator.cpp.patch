@@ -1,5 +1,5 @@
---- .upstream/generator.cpp	2023-02-02 09:58:24.431073637 +0100
-+++ generator.cpp	2023-02-02 12:55:41.000517603 +0100
+--- .upstream/generator.cpp	2023-08-11 10:37:23.940392525 +0200
++++ generator.cpp	2023-08-21 11:25:19.407307372 +0200
 @@ -4,7 +4,9 @@
  // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only WITH Qt-GPL-exception-1.0
  
@@ -75,7 +75,7 @@
  }
 +// -- QtScxml
  
- static inline int lengthOfEscapeSequence(const QByteArray &s, int i)
+ static inline qsizetype lengthOfEscapeSequence(const QByteArray &s, qsizetype i)
  {
 @@ -108,7 +136,7 @@
  
@@ -85,19 +85,18 @@
 +static void printStringWithIndentation(QIODevice &out, const QByteArray &s) // -- QtScxml
  {
      static constexpr int ColumnWidth = 72;
-     int len = s.size();
-@@ -302,7 +330,9 @@
+     const qsizetype len = s.size();
+@@ -301,7 +329,9 @@
      fprintf(out, "    uint offsetsAndSizes[%d];\n", int(strings.size() * 2));
      for (int i = 0; i < strings.size(); ++i) {
          int thisLength = lengthOfEscapedString(strings.at(i)) + 1;
--        fprintf(out, "    char stringdata%d[%d];\n", i, thisLength);
 +// -- QtScxml
-+        fprintf(out, "    unsigned char stringdata%d[%d];\n", i, thisLength);
+         fprintf(out, "    char stringdata%d[%d];\n", i, thisLength);
 +// -- QtScxml
      }
      fprintf(out, "};\n");
  
-@@ -333,10 +363,19 @@
+@@ -332,10 +362,19 @@
  //
  // Build stringdata arrays
  //
@@ -112,7 +111,7 @@
 +        const QByteArray s = strings.at(i);
 +        const qsizetype len = s.size();
 +        for (qsizetype charPos = 0; charPos < len; ++charPos)
-+            fprintf(out, "0x%.2x,", static_cast<quint8>(s.at(charPos)));
++            fprintf(out, "char(0x%.2x),", static_cast<quint8>(s.at(charPos)));
 +        const bool isLast = (i == end - 1);
 +        fprintf(out, "0%s // %d: %s", isLast ? "}" : "},", i, s.constData());
      }
@@ -120,23 +119,7 @@
  
  // Terminate stringdata struct
      fprintf(out, "\n};\n");
-@@ -631,9 +670,12 @@
- //
-     fprintf(out, "\nvoid *%s::qt_metacast(const char *_clname)\n{\n", cdef->qualified.constData());
-     fprintf(out, "    if (!_clname) return nullptr;\n");
--    fprintf(out, "    if (!strcmp(_clname, qt_meta_stringdata_%s.stringdata0))\n"
--                  "        return static_cast<void*>(this);\n",
--            qualifiedClassNameIdentifier.constData());
-+// -- QtScxml
-+    fprintf(out, "    if (!strcmp(_clname, reinterpret_cast<const char *>(\n"
-+                 "            qt_meta_stringdata_%s.stringdata0)))\n"
-+                 "        return static_cast<void*>(const_cast< %s*>(this));\n",
-+            qualifiedClassNameIdentifier.constData(), cdef->qualified.constData());
-+// -- QtScxml
-     for (int i = 1; i < cdef->superclassList.size(); ++i) { // for all superclasses but the first one
-         if (cdef->superclassList.at(i).second == FunctionDef::Private)
-             continue;
-@@ -672,7 +714,9 @@
+@@ -682,7 +721,9 @@
  //
  // Generate plugin meta data
  //
@@ -146,7 +129,7 @@
  
  //
  // Generate function to make sure the non-class signals exist in the parent classes
-@@ -1142,6 +1186,13 @@
+@@ -1134,6 +1175,13 @@
              const FunctionDef &f = methodList.at(methodindex);
              Q_ASSERT(!f.normalizedType.isEmpty());
              fprintf(out, "        case %d: ", methodindex);
@@ -160,7 +143,7 @@
              if (f.normalizedType != "void")
                  fprintf(out, "{ %s _r = ", noRef(f.normalizedType).constData());
              fprintf(out, "_t->");
-@@ -1219,6 +1270,10 @@
+@@ -1212,6 +1260,10 @@
              const FunctionDef &f = cdef->signalList.at(methodindex);
              if (f.wasCloned || !f.inPrivateClass.isEmpty() || f.isStatic)
                  continue;
@@ -171,7 +154,7 @@
              anythingUsed = true;
              fprintf(out, "        {\n");
              fprintf(out, "            using _t = %s (%s::*)(",f.type.rawName.constData() , cdef->classname.constData());
-@@ -1240,7 +1295,7 @@
+@@ -1234,7 +1286,7 @@
              else
                  fprintf(out, ");\n");
              fprintf(out, "            if (_t _q_method = &%s::%s; *reinterpret_cast<_t *>(_a[1]) == _q_method) {\n",
@@ -180,7 +163,7 @@
              fprintf(out, "                *result = %d;\n", methodindex);
              fprintf(out, "                return;\n");
              fprintf(out, "            }\n        }\n");
-@@ -1336,8 +1391,11 @@
+@@ -1329,8 +1381,11 @@
                      fprintf(out, "        case %d: *reinterpret_cast< %s*>(_v) = %s%s().value(); break;\n",
                              propindex, p.type.constData(), prefix.constData(), p.bind.constData());
                  else if (!p.read.isEmpty())
@@ -194,7 +177,7 @@
                  else
                      fprintf(out, "        case %d: *reinterpret_cast< %s*>(_v) = %s%s; break;\n",
                              propindex, p.type.constData(), prefix.constData(), p.member.constData());
-@@ -1469,6 +1527,10 @@
+@@ -1462,6 +1517,10 @@
  {
      if (def->wasCloned || def->isAbstract)
          return;
@@ -205,7 +188,7 @@
      fprintf(out, "\n// SIGNAL %d\n%s %s::%s(",
              index, def->type.name.constData(), cdef->qualified.constData(), def->name.constData());
  
-@@ -1515,10 +1577,8 @@
+@@ -1510,10 +1569,8 @@
      if (def->normalizedType == "void") {
          fprintf(out, "nullptr");
      } else {
@@ -218,7 +201,7 @@
      }
      int i;
      for (i = 1; i < offset; ++i)
-@@ -1533,6 +1593,36 @@
+@@ -1528,6 +1585,36 @@
      fprintf(out, "}\n");
  }
  
@@ -255,7 +238,7 @@
  static CborError jsonValueToCbor(CborEncoder *parent, const QJsonValue &v);
  static CborError jsonObjectToCbor(CborEncoder *parent, const QJsonObject &o)
  {
-@@ -1668,7 +1758,11 @@
+@@ -1663,7 +1750,11 @@
  
  #define CBOR_ENCODER_WRITER_CONTROL     1
  #define CBOR_ENCODER_WRITE_FUNCTION     CborDevice::callback
