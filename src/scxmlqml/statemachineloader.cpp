@@ -38,9 +38,9 @@ QT_PREPEND_NAMESPACE(QScxmlStateMachine) *QScxmlStateMachineLoader::stateMachine
 
 void QScxmlStateMachineLoader::setStateMachine(QScxmlStateMachine* stateMachine)
 {
-    if (m_stateMachine.value() != stateMachine) {
-        delete m_stateMachine.value();
-        m_stateMachine = stateMachine;
+    if (m_stateMachine.valueBypassingBindings() != stateMachine) {
+        delete m_stateMachine.valueBypassingBindings();
+        m_stateMachine.setValueBypassingBindings(stateMachine);
     }
 }
 
@@ -65,17 +65,23 @@ void QScxmlStateMachineLoader::setSource(const QUrl &source)
     if (!source.isValid())
         return;
 
-    const QUrl oldSource = m_source;
+    m_source.removeBindingUnlessInWrapper();
+
+    const QUrl oldSource = m_source.valueBypassingBindings();
+    const auto *oldStateMachine = m_stateMachine.valueBypassingBindings();
     setStateMachine(nullptr);
     m_implicitDataModel = nullptr;
 
     if (parse(source))
-        m_source = source;
+        m_source.setValueBypassingBindings(source);
     else
-        m_source = QUrl();
+        m_source.setValueBypassingBindings(QUrl());
 
-    if (oldSource != m_source)
+    if (oldSource != m_source.valueBypassingBindings())
         m_source.notify();
+
+    if (oldStateMachine != m_stateMachine.valueBypassingBindings())
+        m_stateMachine.notify();
 }
 
 QBindable<QUrl> QScxmlStateMachineLoader::bindableSource()
@@ -90,13 +96,15 @@ QVariantMap QScxmlStateMachineLoader::initialValues() const
 
 void QScxmlStateMachineLoader::setInitialValues(const QVariantMap &initialValues)
 {
-    if (initialValues == m_initialValues.value()) {
-        m_initialValues.removeBindingUnlessInWrapper();
+    m_initialValues.removeBindingUnlessInWrapper();
+    if (initialValues == m_initialValues.valueBypassingBindings())
         return;
-    }
-    m_initialValues = initialValues;
-    if (m_stateMachine.value())
-        m_stateMachine.value()->setInitialValues(initialValues);
+
+    m_initialValues.setValueBypassingBindings(initialValues);
+
+    const auto stateMachine = m_stateMachine.valueBypassingBindings();
+    if (stateMachine)
+        stateMachine->setInitialValues(initialValues);
     m_initialValues.notify();
 }
 
@@ -112,16 +120,17 @@ QScxmlDataModel *QScxmlStateMachineLoader::dataModel() const
 
 void QScxmlStateMachineLoader::setDataModel(QScxmlDataModel *dataModel)
 {
-    if (dataModel == m_dataModel.value()) {
-        m_dataModel.removeBindingUnlessInWrapper();
+    m_dataModel.removeBindingUnlessInWrapper();
+    if (dataModel == m_dataModel.valueBypassingBindings()) {
         return;
     }
-    m_dataModel = dataModel;
-    if (m_stateMachine.value()) {
+    m_dataModel.setValueBypassingBindings(dataModel);
+    const auto stateMachine = m_stateMachine.valueBypassingBindings();
+    if (stateMachine) {
         if (dataModel)
-            m_stateMachine.value()->setDataModel(dataModel);
+            stateMachine->setDataModel(dataModel);
         else
-            m_stateMachine.value()->setDataModel(m_implicitDataModel);
+            stateMachine->setDataModel(m_implicitDataModel);
     }
     m_dataModel.notify();
 }
@@ -174,7 +183,7 @@ bool QScxmlStateMachineLoader::parse(const QUrl &source)
         setStateMachine(stateMachine);
         // as this is deferred any pending property updates to m_dataModel and m_initialValues
         // should still occur before start().
-        QMetaObject::invokeMethod(m_stateMachine.value(), "start", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_stateMachine.valueBypassingBindings(), "start", Qt::QueuedConnection);
         return true;
     } else {
         qmlWarning(this) << QStringLiteral("Something went wrong while parsing '%1':")
