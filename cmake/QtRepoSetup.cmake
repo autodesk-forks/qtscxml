@@ -1,5 +1,5 @@
 # Copyright (C) 2022 The Qt Company Ltd.
-# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-License-Identifier: LicenseRef-Qt-Commercial
 
 function(add_qt_statecharts target)
     # Don't try to add statecharts when cross compiling, and the target is actually a host target
