@@ -1,6 +1,6 @@
 # Copyright (C) 2016 Klaralvdalens Datakonsult AB (KDAB).
 # Copyright (C) 2022 The Qt Company Ltd.
-# SPDX-License-Identifier: LicenseRef-Qt-Commercial
+# SPDX-License-Identifier: BSD-3-Clause
 
 function(qt6_add_statecharts target_or_outfiles)
     set(options)
